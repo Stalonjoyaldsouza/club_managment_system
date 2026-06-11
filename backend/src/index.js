@@ -19,8 +19,18 @@ dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 4000;
+const allowedOrigins = new Set([
+  process.env.FRONTEND_URL || "http://localhost:5173",
+  "http://localhost:5173"
+]);
 
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173", credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.has(origin) || /^http:\/\/localhost:\d+$/.test(origin)) return callback(null, true);
+    return callback(new Error(`CORS blocked origin: ${origin}`));
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(morgan("dev"));
 
@@ -42,4 +52,12 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: err.message || "Server error" });
 });
 
-app.listen(port, () => console.log(`ClubNexus API running on http://localhost:${port}`));
+const server = app.listen(port, () => console.log(`ClubNexus API running on http://localhost:${port}`));
+
+server.on("error", (error) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(`Port ${port} is already in use. Stop the existing backend process or set PORT to a different value in backend/.env.`);
+    process.exit(1);
+  }
+  throw error;
+});

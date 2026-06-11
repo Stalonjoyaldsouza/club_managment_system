@@ -1,6 +1,6 @@
 # ClubNexus - Club Management System
 
-ClubNexus is a full-stack club management web app built with React, Vite, Tailwind CSS, Node.js, Express, PostgreSQL, Prisma, JWT auth, Nodemailer, and Anthropic Claude email generation.
+ClubNexus is a full-stack club management web app built with React, Vite, Tailwind CSS, Node.js, Express, PostgreSQL, Prisma, JWT auth, Nodemailer, and AI-powered email generation.
 
 ## Features
 
@@ -11,7 +11,7 @@ ClubNexus is a full-stack club management web app built with React, Vite, Tailwi
 - Inventory items, borrow requests, approvals, rejection, returns, and borrower email notifications
 - Project tracking with tags, team roles, GitHub links, and progress
 - Event list/calendar, registration, attendance, and hackathon fields
-- Email Studio with Claude-powered body generation, editable message body, Gmail SMTP sending, and email logs
+- Email Studio with Gemini or Claude-powered body generation, editable message body, Gmail SMTP sending, and email logs
 
 ## Project Structure
 

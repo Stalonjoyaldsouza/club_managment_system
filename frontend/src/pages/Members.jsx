@@ -13,8 +13,16 @@ export default function Members() {
   const members = useMemo(() => data.filter((m) => `${m.user.name} ${m.user.email} ${m.department}`.toLowerCase().includes(q.toLowerCase())), [data, q]);
   const create = useMutation({
     mutationFn: (payload) => api.post("/members", payload).then(unwrap),
-    onSuccess: () => { toast.success("Member added"); setOpen(false); queryClient.invalidateQueries({ queryKey: ["members"] }); },
-    onError: (error) => toast.error(error.response?.data?.message || "Could not add member")
+    onSuccess: async () => {
+      toast.success("Member added");
+      setOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["members"] });
+    },
+    onError: (error) => {
+      const details = error.response?.data?.errors?.fieldErrors;
+      const firstError = details && Object.values(details).flat()[0];
+      toast.error(firstError || error.response?.data?.message || "Could not add member");
+    }
   });
 
   return (
@@ -38,5 +46,17 @@ export default function Members() {
 
 function MemberModal({ onClose, onSubmit, isPending }) {
   const [form, setForm] = useState({ name: "", email: "", password: "clubnexus123", role: "MEMBER", department: "", position: "" });
-  return <Modal title="Add member" onClose={onClose}><form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); onSubmit(form); }}><div className="grid gap-4 sm:grid-cols-2"><Field label="Name"><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field><Field label="Email"><Input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field><Field label="Department"><Input required value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></Field><Field label="Position"><Input required value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></Field><Field label="Role"><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>ADMIN</option><option>MEMBER</option><option>VIEWER</option></Select></Field><Field label="Initial password"><Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field></div><div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button disabled={isPending}>Save</Button></div></form></Modal>;
+  function submit(event) {
+    event.preventDefault();
+    onSubmit({
+      ...form,
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      department: form.department.trim(),
+      position: form.position.trim(),
+      password: form.password.trim() || undefined
+    });
+  }
+
+  return <Modal title="Add member" onClose={onClose}><form className="grid gap-4" onSubmit={submit}><div className="grid gap-4 sm:grid-cols-2"><Field label="Name"><Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field><Field label="Email"><Input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field><Field label="Department"><Input required value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></Field><Field label="Position"><Input required value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></Field><Field label="Role"><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>ADMIN</option><option>MEMBER</option><option>VIEWER</option></Select></Field><Field label="Initial password"><Input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field></div><div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={onClose}>Cancel</Button><Button disabled={isPending}>Save</Button></div></form></Modal>;
 }

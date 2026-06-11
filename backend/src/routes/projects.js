@@ -10,13 +10,16 @@ router.use(requireAuth);
 
 const projectSchema = z.object({
   body: z.object({
-    name: z.string().min(2),
-    description: z.string().min(5),
-    status: z.enum(["PLANNING", "ACTIVE", "COMPLETED", "ON_HOLD", "CANCELLED"]),
-    startDate: z.string(),
-    endDate: z.string().optional().nullable(),
-    githubUrl: z.string().url().optional().or(z.literal("")),
-    tags: z.array(z.string()).default([])
+    name: z.string().trim().min(2),
+    description: z.string().trim().min(5),
+    status: z.enum(["PLANNING", "ACTIVE", "COMPLETED", "ON_HOLD", "CANCELLED"]).default("PLANNING"),
+    startDate: z.string().trim().min(1),
+    endDate: z.preprocess((value) => value === "" ? null : value, z.string().trim().optional().nullable()),
+    githubUrl: z.preprocess(
+      (value) => value === "" ? null : value,
+      z.string().trim().url().optional().nullable()
+    ),
+    tags: z.array(z.string().trim()).default([])
   })
 });
 
@@ -35,26 +38,37 @@ router.get("/", asyncHandler(async (req, res) => {
 }));
 
 router.post("/", requireWritable, validate(projectSchema), asyncHandler(async (req, res) => {
+  const startDate = new Date(req.validated.body.startDate);
+  const endDate = req.validated.body.endDate ? new Date(req.validated.body.endDate) : null;
+  if (Number.isNaN(startDate.getTime()) || (endDate && Number.isNaN(endDate.getTime()))) {
+    return res.status(400).json({ message: "Project dates are invalid" });
+  }
+
   const project = await prisma.project.create({
     data: {
       ...req.validated.body,
-      startDate: new Date(req.validated.body.startDate),
-      endDate: req.validated.body.endDate ? new Date(req.validated.body.endDate) : null,
-      githubUrl: req.validated.body.githubUrl || null,
+      startDate,
+      endDate,
       createdById: req.user.member.id
-    }
+    },
+    include: { createdBy: { include: { user: true } }, members: { include: { member: { include: { user: true } } } } }
   });
-  res.status(201).json(project);
+  res.status(201).json({ ...project, progress: progressFor(project.status) });
 }));
 
 router.put("/:id", requireWritable, validate(projectSchema), asyncHandler(async (req, res) => {
+  const startDate = new Date(req.validated.body.startDate);
+  const endDate = req.validated.body.endDate ? new Date(req.validated.body.endDate) : null;
+  if (Number.isNaN(startDate.getTime()) || (endDate && Number.isNaN(endDate.getTime()))) {
+    return res.status(400).json({ message: "Project dates are invalid" });
+  }
+
   const project = await prisma.project.update({
     where: { id: req.params.id },
     data: {
       ...req.validated.body,
-      startDate: new Date(req.validated.body.startDate),
-      endDate: req.validated.body.endDate ? new Date(req.validated.body.endDate) : null,
-      githubUrl: req.validated.body.githubUrl || null
+      startDate,
+      endDate
     }
   });
   res.json(project);

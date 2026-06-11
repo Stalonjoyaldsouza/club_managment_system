@@ -11,12 +11,15 @@ router.use(requireAuth);
 
 const memberSchema = z.object({
   body: z.object({
-    name: z.string().min(2),
-    email: z.string().email(),
-    password: z.string().min(6).optional(),
-    role: z.enum(["ADMIN", "MEMBER", "VIEWER"]),
-    position: z.string().min(1),
-    department: z.string().min(1),
+    name: z.string().trim().min(2),
+    email: z.string().trim().email().transform((email) => email.toLowerCase()),
+    password: z.preprocess(
+      (value) => value === "" ? undefined : value,
+      z.string().min(6).optional()
+    ),
+    role: z.enum(["ADMIN", "MEMBER", "VIEWER"]).default("MEMBER"),
+    position: z.string().trim().min(1),
+    department: z.string().trim().min(1),
     isActive: z.boolean().optional(),
     avatarUrl: z.string().url().optional().or(z.literal(""))
   })
@@ -79,9 +82,18 @@ router.post("/", requireRole("ADMIN"), validate(memberSchema), asyncHandler(asyn
       passwordHash: await bcrypt.hash(password, 10),
       member: { create: { position, department } }
     },
-    include: { member: true }
+    include: {
+      member: {
+        include: {
+          user: true,
+          projectMemberships: { include: { project: true } },
+          borrowedRequests: { include: { item: true } },
+          attendanceRecords: true
+        }
+      }
+    }
   });
-  res.status(201).json(user.member);
+  res.status(201).json({ ...user.member, attendanceRate: 0 });
 }));
 
 router.put("/:id", requireWritable, validate(memberUpdateSchema), asyncHandler(async (req, res) => {

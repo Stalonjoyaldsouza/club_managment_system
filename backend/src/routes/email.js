@@ -27,9 +27,10 @@ router.post("/generate", requireWritable, validate(generateSchema), asyncHandler
 
 router.post("/send", requireWritable, validate(z.object({
   body: z.object({
-    subject: z.string().min(1),
-    body: z.string().min(1),
-    recipients: z.array(z.string().email()).min(1),
+    subject: z.string().trim().min(1),
+    body: z.string().trim().min(1),
+    recipients: z.array(z.string().trim().toLowerCase().email()).min(1)
+      .transform((recipients) => [...new Set(recipients)]),
     category: z.enum(["PERMISSION", "ANNOUNCEMENT", "REMINDER", "OTHER"]),
     aiGenerated: z.boolean().default(false)
   })
@@ -39,20 +40,29 @@ router.post("/send", requireWritable, validate(z.object({
   let providerResult;
   try {
     providerResult = await sendEmail({
-      to: payload.recipients.join(","),
+      to: payload.recipients,
       subject: payload.subject,
       text: payload.body.replace(/<[^>]*>/g, ""),
       html: payload.body.replace(/\n/g, "<br>")
     });
   } catch (error) {
     status = "FAILED";
-    providerResult = { error: error.message };
+    providerResult = {
+      error: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response
+    };
   }
 
   const log = await prisma.emailLog.create({
     data: { ...payload, sentById: req.user.member.id, status }
   });
-  res.status(status === "SENT" ? 201 : 502).json({ log, providerResult });
+  res.status(status === "SENT" ? 201 : 502).json({
+    message: status === "SENT" ? "Email sent" : providerResult.error || "Email delivery failed",
+    log,
+    providerResult
+  });
 }));
 
 router.get("/logs", asyncHandler(async (_req, res) => {
